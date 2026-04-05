@@ -1,0 +1,671 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ArtistStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AlbumStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SongStatus {
+  PROCESSING
+  READY
+  BLOCKED
+  DELETED
+}
+
+enum RightsStatus {
+  PENDING
+  OWNED
+  AUTHORIZED
+  REJECTED
+}
+
+enum UploadStatus {
+  QUEUED
+  SCANNING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+enum PlaylistVisibility {
+  PRIVATE
+  UNLISTED
+  PUBLIC
+}
+
+enum PlaylistStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum PlaybackSource {
+  STREAM
+  OFFLINE
+  CACHE
+}
+
+enum PlaybackSessionStatus {
+  ACTIVE
+  PAUSED
+  ENDED
+  EXPIRED
+  ABORTED
+}
+
+enum PlaybackQuality {
+  AUTO
+  LOW
+  MEDIUM
+  HIGH
+  LOSSLESS
+}
+
+enum OfflineDownloadStatus {
+  QUEUED
+  DOWNLOADING
+  READY
+  EXPIRED
+  FAILED
+  DELETED
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum PlanInterval {
+  MONTHLY
+  YEARLY
+  LIFETIME
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CHARGEBACK
+}
+
+enum PromoDiscountType {
+  PERCENT
+  FIXED
+}
+
+enum AdCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SYSTEM
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+  DISMISSED
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+  DESKTOP
+  UNKNOWN
+}
+
+enum DeviceSessionStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum AnalyticsSource {
+  MOBILE
+  BACKEND
+  ADMIN
+}
+
+enum AuthSessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+model User {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email              String            @unique @db.VarChar(320)
+  passwordHash       String            @map("password_hash") @db.Text
+  role               UserRole          @default(USER)
+  status             UserStatus        @default(PENDING)
+  createdAt          DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime?         @map("deleted_at") @db.Timestamptz(6)
+
+  profile            UserProfile?
+  preferences        UserPreference?
+  songsUploaded      Song[]
+  uploads            Upload[]
+  playlists          Playlist[]
+  favorites          Favorite[]
+  recentPlays        RecentPlay[]
+  playbackSessions   PlaybackSession[]
+  offlineDownloads   OfflineDownload[]
+  subscriptions      Subscription[]
+  payments           Payment[]
+  promoCodesCreated  PromoCode[]       @relation("PromoCodesCreatedBy")
+  adCampaignsCreated AdCampaign[]      @relation("AdCampaignsCreatedBy")
+  notifications      Notification[]
+  deviceSessions     DeviceSession[]
+  authSessions       AuthSession[]
+  analyticsEvents    AnalyticsEvent[]
+  storageUsage       StorageUsage[]
+
+  @@index([status], map: "idx_users_status")
+  @@map("users")
+}
+
+model UserProfile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  displayName  String   @map("display_name") @db.VarChar(140)
+  avatarUrl    String?  @map("avatar_url") @db.Text
+  avatarStorageKey String? @map("avatar_storage_key") @db.Text
+  avatarMetadata Json?  @map("avatar_metadata")
+  profileMetadata Json? @map("profile_metadata")
+  bio          String?  @db.Text
+  countryCode  String?  @map("country_code") @db.Char(2)
+  dateOfBirth  DateTime? @map("date_of_birth") @db.Date
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserPreference {
+  id                          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                      String   @unique @map("user_id") @db.Uuid
+  inAppNotificationsEnabled   Boolean  @default(true) @map("in_app_notifications_enabled")
+  pushNotificationsEnabled    Boolean  @default(true) @map("push_notifications_enabled")
+  emailNotificationsEnabled   Boolean  @default(true) @map("email_notifications_enabled")
+  emailMarketingEnabled       Boolean  @default(false) @map("email_marketing_enabled")
+  emailProductUpdatesEnabled  Boolean  @default(true) @map("email_product_updates_enabled")
+  emailSecurityAlertsEnabled  Boolean  @default(true) @map("email_security_alerts_enabled")
+  notificationTopics          Json?    @map("notification_topics")
+  createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Artist {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String       @db.VarChar(180)
+  slug            String       @unique @db.VarChar(200)
+  bio             String?      @db.Text
+  status          ArtistStatus @default(ACTIVE)
+  createdByUserId String?      @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  albums    Album[]
+  songs     Song[]
+
+  @@index([status], map: "idx_artists_status")
+  @@map("artists")
+}
+
+model Album {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artistId    String      @map("artist_id") @db.Uuid
+  title       String      @db.VarChar(240)
+  slug        String      @db.VarChar(260)
+  releaseDate DateTime?   @map("release_date") @db.Date
+  status      AlbumStatus @default(DRAFT)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Restrict)
+  songs  Song[]
+
+  @@unique([artistId, slug], map: "uq_albums_artist_slug")
+  @@index([artistId, status], map: "idx_albums_artist_status")
+  @@map("albums")
+}
+
+model Song {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  artistId          String       @map("artist_id") @db.Uuid
+  albumId           String?      @map("album_id") @db.Uuid
+  uploadedByUserId  String       @map("uploaded_by_user_id") @db.Uuid
+  title             String       @db.VarChar(260)
+  slug              String       @db.VarChar(300)
+  genre             String?      @db.VarChar(120)
+  trackNumber       Int?         @map("track_number")
+  durationSeconds   Int          @map("duration_seconds")
+  filePath          String       @map("file_path") @db.Text
+  mimeType          String       @map("mime_type") @db.VarChar(120)
+  fileSizeBytes     BigInt       @map("file_size_bytes")
+  checksumSha256    String       @map("checksum_sha256") @db.Char(64)
+  rightsStatus      RightsStatus @default(PENDING) @map("rights_status")
+  status            SongStatus   @default(PROCESSING)
+  isExplicit        Boolean      @default(false) @map("is_explicit")
+  publishedAt       DateTime?    @map("published_at") @db.Timestamptz(6)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  artist           Artist            @relation(fields: [artistId], references: [id], onDelete: Restrict)
+  album            Album?            @relation(fields: [albumId], references: [id], onDelete: SetNull)
+  uploadedBy       User              @relation(fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+  uploads          Upload[]
+  playlistItems    PlaylistItem[]
+  favorites        Favorite[]
+  recentPlays      RecentPlay[]
+  playbackSessions PlaybackSession[]
+  offlineDownloads OfflineDownload[]
+
+  @@unique([uploadedByUserId, slug], map: "uq_songs_owner_slug")
+  @@index([artistId, status], map: "idx_songs_artist_status")
+  @@index([rightsStatus, status], map: "idx_songs_rights_status")
+  @@map("songs")
+}
+
+model Upload {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String       @map("user_id") @db.Uuid
+  songId           String?      @map("song_id") @db.Uuid
+  originalFilename String       @map("original_filename") @db.VarChar(320)
+  mimeType         String       @map("mime_type") @db.VarChar(120)
+  fileSizeBytes    BigInt       @map("file_size_bytes")
+  uploadedBytes    BigInt       @default(0) @map("uploaded_bytes")
+  uploadProgressPct Int         @default(0) @map("upload_progress_pct")
+  legalAttestationAccepted Boolean @default(false) @map("legal_attestation_accepted")
+  storageKey       String?      @map("storage_key") @db.Text
+  storageEtag      String?      @map("storage_etag") @db.VarChar(200)
+  signedUploadExpiresAt DateTime? @map("signed_upload_expires_at") @db.Timestamptz(6)
+  metadataExtracted Json?       @map("metadata_extracted")
+  status           UploadStatus @default(QUEUED)
+  errorMessage     String?      @map("error_message") @db.Text
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  song Song? @relation(fields: [songId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status], map: "idx_uploads_user_status")
+  @@map("uploads")
+}
+
+model Playlist {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String             @map("user_id") @db.Uuid
+  title       String             @db.VarChar(180)
+  description String?            @db.Text
+  visibility  PlaylistVisibility @default(PRIVATE)
+  status      PlaylistStatus     @default(ACTIVE)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  owner User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items PlaylistItem[]
+
+  @@index([userId, status], map: "idx_playlists_owner_status")
+  @@map("playlists")
+}
+
+model PlaylistItem {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  playlistId    String   @map("playlist_id") @db.Uuid
+  songId        String   @map("song_id") @db.Uuid
+  position      Int
+  addedByUserId String?  @map("added_by_user_id") @db.Uuid
+  addedAt       DateTime @default(now()) @map("added_at") @db.Timestamptz(6)
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Restrict)
+  addedBy  User?    @relation(fields: [addedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([playlistId, position], map: "uq_playlist_items_playlist_position")
+  @@index([songId], map: "idx_playlist_items_song")
+  @@map("playlist_items")
+}
+
+model Favorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  songId    String   @map("song_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, songId], map: "uq_favorites_user_song")
+  @@map("favorites")
+}
+
+model RecentPlay {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String         @map("user_id") @db.Uuid
+  songId           String         @map("song_id") @db.Uuid
+  playbackSource   PlaybackSource @map("playback_source")
+  playedAt         DateTime       @default(now()) @map("played_at") @db.Timestamptz(6)
+  playDurationSecs Int?           @map("play_duration_secs")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Restrict)
+
+  @@index([userId, playedAt], map: "idx_recent_plays_user_played_at")
+  @@index([songId, playedAt], map: "idx_recent_plays_song_played_at")
+  @@map("recent_plays")
+}
+
+model DeviceSession {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String              @map("user_id") @db.Uuid
+  deviceId      String              @map("device_id") @db.VarChar(190)
+  platform      DevicePlatform      @default(UNKNOWN)
+  appVersion    String?             @map("app_version") @db.VarChar(40)
+  pushToken     String?             @map("push_token") @db.Text
+  ipAddress     String?             @map("ip_address") @db.VarChar(64)
+  userAgent     String?             @map("user_agent") @db.Text
+  status        DeviceSessionStatus @default(ACTIVE)
+  lastSeenAt    DateTime            @default(now()) @map("last_seen_at") @db.Timestamptz(6)
+  revokedAt     DateTime?           @map("revoked_at") @db.Timestamptz(6)
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  offlineDownloads OfflineDownload[]
+  analyticsEvents  AnalyticsEvent[]
+  playbackSessions PlaybackSession[]
+
+  @@unique([userId, deviceId], map: "uq_device_sessions_user_device")
+  @@index([status, lastSeenAt], map: "idx_device_sessions_status_last_seen")
+  @@map("device_sessions")
+}
+
+model AuthSession {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String            @map("user_id") @db.Uuid
+  deviceId             String            @map("device_id") @db.VarChar(190)
+  refreshTokenHash     String?           @map("refresh_token_hash") @db.Char(64)
+  refreshTokenExpiresAt DateTime?        @map("refresh_token_expires_at") @db.Timestamptz(6)
+  userAgent            String?           @map("user_agent") @db.Text
+  ipAddress            String?           @map("ip_address") @db.VarChar(64)
+  status               AuthSessionStatus @default(ACTIVE)
+  expiresAt            DateTime          @map("expires_at") @db.Timestamptz(6)
+  revokedAt            DateTime?         @map("revoked_at") @db.Timestamptz(6)
+  lastUsedAt           DateTime?         @map("last_used_at") @db.Timestamptz(6)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status], map: "idx_auth_sessions_user_status")
+  @@index([status, expiresAt], map: "idx_auth_sessions_status_expires")
+  @@map("auth_sessions")
+}
+
+model PlaybackSession {
+  id                 String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String                @map("user_id") @db.Uuid
+  songId             String                @map("song_id") @db.Uuid
+  deviceSessionId    String?               @map("device_session_id") @db.Uuid
+  quality            PlaybackQuality       @default(AUTO)
+  lowDataMode        Boolean               @default(false) @map("low_data_mode")
+  playbackSource     PlaybackSource        @default(STREAM) @map("playback_source")
+  deliveryMethod     String                @default("SIGNED_URL") @map("delivery_method") @db.VarChar(40)
+  signedUrlExpiresAt DateTime?             @map("signed_url_expires_at") @db.Timestamptz(6)
+  resumeFromSecs     Int                   @default(0) @map("resume_from_secs")
+  lastPositionSecs   Int                   @default(0) @map("last_position_secs")
+  maxPositionSecs    Int                   @default(0) @map("max_position_secs")
+  status             PlaybackSessionStatus @default(ACTIVE)
+  metadata           Json?
+  startedAt          DateTime              @default(now()) @map("started_at") @db.Timestamptz(6)
+  lastHeartbeatAt    DateTime?             @map("last_heartbeat_at") @db.Timestamptz(6)
+  endedAt            DateTime?             @map("ended_at") @db.Timestamptz(6)
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song          Song           @relation(fields: [songId], references: [id], onDelete: Restrict)
+  deviceSession DeviceSession? @relation(fields: [deviceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status, updatedAt], map: "idx_playback_sessions_user_status_updated")
+  @@index([songId, createdAt], map: "idx_playback_sessions_song_created")
+  @@index([deviceSessionId], map: "idx_playback_sessions_device_session")
+  @@map("playback_sessions")
+}
+
+model OfflineDownload {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String                @map("user_id") @db.Uuid
+  songId          String                @map("song_id") @db.Uuid
+  deviceSessionId String?               @map("device_session_id") @db.Uuid
+  localPath       String                @map("local_path") @db.Text
+  encryptionKeyId String?               @map("encryption_key_id") @db.VarChar(160)
+  status          OfflineDownloadStatus @default(QUEUED)
+  expiresAt       DateTime?             @map("expires_at") @db.Timestamptz(6)
+  downloadedAt    DateTime?             @map("downloaded_at") @db.Timestamptz(6)
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song          Song           @relation(fields: [songId], references: [id], onDelete: Cascade)
+  deviceSession DeviceSession? @relation(fields: [deviceSessionId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, songId, deviceSessionId], map: "uq_offline_downloads_user_song_device")
+  @@index([status, expiresAt], map: "idx_offline_downloads_status_expires")
+  @@map("offline_downloads")
+}
+
+model Plan {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String        @unique @db.VarChar(80)
+  name           String        @db.VarChar(120)
+  description    String?       @db.Text
+  interval       PlanInterval
+  priceCents     Int           @map("price_cents")
+  currency       String        @default("USD") @db.Char(3)
+  isActive       Boolean       @default(true) @map("is_active")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@index([isActive], map: "idx_plans_active")
+  @@map("plans")
+}
+
+model Subscription {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String             @map("user_id") @db.Uuid
+  planId             String             @map("plan_id") @db.Uuid
+  status             SubscriptionStatus @default(TRIALING)
+  startsAt           DateTime           @map("starts_at") @db.Timestamptz(6)
+  currentPeriodStart DateTime           @map("current_period_start") @db.Timestamptz(6)
+  currentPeriodEnd   DateTime           @map("current_period_end") @db.Timestamptz(6)
+  cancelAt           DateTime?          @map("cancel_at") @db.Timestamptz(6)
+  endedAt            DateTime?          @map("ended_at") @db.Timestamptz(6)
+  externalRef        String?            @map("external_ref") @db.VarChar(140)
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  payments Payment[]
+
+  @@index([userId, status], map: "idx_subscriptions_user_status")
+  @@map("subscriptions")
+}
+
+model PromoCode {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String            @unique @db.VarChar(64)
+  description     String?           @db.Text
+  discountType    PromoDiscountType @map("discount_type")
+  discountValue   Decimal           @map("discount_value") @db.Decimal(12, 2)
+  maxRedemptions  Int?              @map("max_redemptions")
+  redeemedCount   Int               @default(0) @map("redeemed_count")
+  startsAt        DateTime?         @map("starts_at") @db.Timestamptz(6)
+  expiresAt       DateTime?         @map("expires_at") @db.Timestamptz(6)
+  isActive        Boolean           @default(true) @map("is_active")
+  createdByUserId String?           @map("created_by_user_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy User?     @relation("PromoCodesCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  payments  Payment[]
+
+  @@index([isActive, expiresAt], map: "idx_promo_codes_active_expires")
+  @@map("promo_codes")
+}
+
+model Payment {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  subscriptionId String?       @map("subscription_id") @db.Uuid
+  planId         String?       @map("plan_id") @db.Uuid
+  promoCodeId    String?       @map("promo_code_id") @db.Uuid
+  amountCents    Int           @map("amount_cents")
+  currency       String        @default("USD") @db.Char(3)
+  provider       String        @db.VarChar(80)
+  providerRef    String?       @map("provider_ref") @db.VarChar(140)
+  status         PaymentStatus @default(PENDING)
+  paidAt         DateTime?     @map("paid_at") @db.Timestamptz(6)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan         Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+  promoCode    PromoCode?    @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status], map: "idx_payments_user_status")
+  @@index([provider, providerRef], map: "idx_payments_provider_ref")
+  @@map("payments")
+}
+
+model AdCampaign {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String           @db.VarChar(180)
+  status            AdCampaignStatus @default(DRAFT)
+  startsAt          DateTime?        @map("starts_at") @db.Timestamptz(6)
+  endsAt            DateTime?        @map("ends_at") @db.Timestamptz(6)
+  budgetCents       Int?             @map("budget_cents")
+  impressionsTarget Int?             @map("impressions_target")
+  clicksTarget      Int?             @map("clicks_target")
+  createdByUserId   String?          @map("created_by_user_id") @db.Uuid
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  createdBy User? @relation("AdCampaignsCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([status, startsAt], map: "idx_ad_campaigns_status_starts")
+  @@map("ad_campaigns")
+}
+
+model Notification {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  type         String             @db.VarChar(80)
+  title        String             @db.VarChar(220)
+  body         String             @db.Text
+  channel      NotificationChannel @default(IN_APP)
+  status       NotificationStatus @default(QUEUED)
+  metadata     Json?
+  scheduledFor DateTime?          @map("scheduled_for") @db.Timestamptz(6)
+  sentAt       DateTime?          @map("sent_at") @db.Timestamptz(6)
+  readAt       DateTime?          @map("read_at") @db.Timestamptz(6)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status], map: "idx_notifications_user_status")
+  @@index([scheduledFor], map: "idx_notifications_scheduled_for")
+  @@map("notifications")
+}
+
+model AnalyticsEvent {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String?          @map("user_id") @db.Uuid
+  deviceSessionId String?          @map("device_session_id") @db.Uuid
+  eventName       String           @map("event_name") @db.VarChar(140)
+  eventCategory   String?          @map("event_category") @db.VarChar(100)
+  source          AnalyticsSource
+  properties      Json?
+  eventTimestamp  DateTime         @default(now()) @map("event_timestamp") @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deviceSession DeviceSession? @relation(fields: [deviceSessionId], references: [id], onDelete: SetNull)
+
+  @@index([eventName, eventTimestamp], map: "idx_analytics_events_name_time")
+  @@index([eventCategory, eventTimestamp], map: "idx_analytics_events_category_time")
+  @@index([userId, eventTimestamp], map: "idx_analytics_events_user_time")
+  @@map("analytics_events")
+}
+
+model StorageUsage {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  snapshotDate     DateTime @map("snapshot_date") @db.Date
+  totalBytes       BigInt   @default(0) @map("total_bytes")
+  uploadedBytes    BigInt   @default(0) @map("uploaded_bytes")
+  cachedBytes      BigInt   @default(0) @map("cached_bytes")
+  downloadedBytes  BigInt   @default(0) @map("downloaded_bytes")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, snapshotDate], map: "uq_storage_usage_user_snapshot_date")
+  @@index([snapshotDate], map: "idx_storage_usage_snapshot_date")
+  @@map("storage_usage")
+}
