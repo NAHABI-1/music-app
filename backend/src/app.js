@@ -9,13 +9,28 @@ const { apiRouter } = require('./routes');
 function createApp() {
   const env = getEnv();
   const app = express();
+  const allowedOrigins = new Set(env.app.allowedOrigins);
 
   app.disable('x-powered-by');
 
   app.use(helmet());
   app.use(
     cors({
-      origin: env.app.allowedOrigins.length ? env.app.allowedOrigins : true,
+      origin(origin, callback) {
+        if (!origin) {
+          return callback(null, true);
+        }
+
+        if (allowedOrigins.has(origin)) {
+          return callback(null, true);
+        }
+
+        return callback({
+          statusCode: 403,
+          code: 'CORS_ORIGIN_DENIED',
+          message: 'Origin is not allowed by CORS policy.',
+        });
+      },
     })
   );
   app.use(express.json({ limit: '2mb' }));

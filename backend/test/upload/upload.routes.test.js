@@ -15,14 +15,16 @@ function createStubController() {
   };
 }
 
-function buildApp() {
+function buildApp({ requireAuthMiddleware } = {}) {
   const app = express();
   app.use(express.json());
 
-  const fakeRequireAuth = () => (req, _res, next) => {
-    req.auth = { userId: 'user-1', role: 'USER', email: 'user@example.com' };
-    next();
-  };
+  const fakeRequireAuth =
+    requireAuthMiddleware ||
+    (() => (req, _res, next) => {
+      req.auth = { userId: 'user-1', role: 'USER', email: 'user@example.com' };
+      next();
+    });
 
   app.use('/uploads', createUploadRouter({ requireAuth: fakeRequireAuth, controller: createStubController() }));
 
@@ -39,6 +41,22 @@ test('POST /uploads validates initiate payload', async () => {
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, 'VALIDATION_ERROR');
+});
+
+test('POST /uploads rejects unauthenticated request', async () => {
+  const app = buildApp({
+    requireAuthMiddleware: () => (_req, _res, next) =>
+      next({ statusCode: 401, code: 'AUTH_REQUIRED', message: 'Authentication is required.' }),
+  });
+  const response = await request(app).post('/uploads').send({
+    filename: 'song.mp3',
+    mimeType: 'audio/mpeg',
+    fileSizeBytes: 4096,
+    legalAttestationAccepted: true,
+  });
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.code, 'AUTH_REQUIRED');
 });
 
 test('POST /uploads accepts valid initiate payload', async () => {
@@ -75,4 +93,12 @@ test('POST /uploads/:id/complete accepts optional metadata hints', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.body.route, 'complete');
+});
+
+test('POST /uploads/:id/access-url accepts optional access payload', async () => {
+  const app = buildApp();
+  const response = await request(app).post('/uploads/u1/access-url').send({ download: false });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.route, 'access');
 });

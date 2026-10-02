@@ -169,6 +169,8 @@ All upload flows require authenticated user ownership checks.
 
 Base URL: `http://localhost:4000/api/v1`
 
+For website integration (health/auth/library/playback/access URL vertical slice), see `docs/api.md`.
+
 Core route groups:
 
 - `/health`: health checks

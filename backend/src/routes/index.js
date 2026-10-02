@@ -9,6 +9,7 @@ const { createInteractionRouter } = require('../modules/catalog/interaction.rout
 const { createLibraryRouter } = require('../modules/catalog/library.routes');
 const { createPlaylistRouter } = require('../modules/catalog/playlist.routes');
 const { createOfflineRouter } = require('../modules/media/offline.routes');
+const { createPlaybackRouter } = require('../modules/media/playback.routes');
 const { createUploadRouter } = require('../modules/media/upload.routes');
 const { createNotificationsRouter } = require('../modules/notifications/notifications.routes');
 const { createProfileRouter } = require('../modules/profile/profile.routes');
@@ -28,6 +29,7 @@ apiRouter.use('/interactions', createInteractionRouter());
 apiRouter.use('/library', createLibraryRouter());
 apiRouter.use('/playlists', createPlaylistRouter());
 apiRouter.use('/offline', createOfflineRouter());
+apiRouter.use('/playback', createPlaybackRouter());
 apiRouter.use('/uploads', createUploadRouter());
 
 module.exports = { apiRouter };

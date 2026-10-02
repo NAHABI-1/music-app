@@ -4,7 +4,7 @@ The library module exposes authenticated, ownership-aware endpoints for browsing
 
 ## Endpoints
 
-- `GET /api/library/songs`
+- `GET /api/v1/library/songs`
   - Query:
     - `filter`: `all | favorites | recent | uploads` (default `all`)
     - `page`: integer >= 1
@@ -12,19 +12,19 @@ The library module exposes authenticated, ownership-aware endpoints for browsing
     - `sortBy`: `createdAt | updatedAt | title`
     - `sortOrder`: `asc | desc`
     - `q`: optional search term for title, artist, or album
-- `GET /api/library/songs/search`
+- `GET /api/v1/library/songs/search`
   - Query:
     - required `q`
     - `page`, `pageSize`, `sortBy`, `sortOrder`
   - Behavior: dedicated song search endpoint (same ownership guards as list)
-- `GET /api/library/songs/:songId`
+- `GET /api/v1/library/songs/:songId`
   - Returns a single song detail if visible to the requesting user.
-- `GET /api/library/search`
+- `GET /api/v1/library/search`
   - Query:
     - required `q`
     - `page`, `pageSize`, `sortOrder`
   - Returns grouped results for artists, albums, and playlists.
-- `GET /api/library/summary`
+- `GET /api/v1/library/summary`
   - Returns high-level counts for songs/uploads/favorites/recent/artists/albums/playlists.
 
 ## Ownership and Security
