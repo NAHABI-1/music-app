@@ -17,14 +17,16 @@ function createStubController() {
   };
 }
 
-function createAppWithRouter() {
+function createAppWithRouter({ requireAuthMiddleware } = {}) {
   const app = express();
   app.use(express.json());
 
-  const fakeRequireAuth = () => (req, _res, next) => {
-    req.auth = { userId: 'u1', role: 'ADMIN', email: 'admin@example.com' };
-    next();
-  };
+  const fakeRequireAuth =
+    requireAuthMiddleware ||
+    (() => (req, _res, next) => {
+      req.auth = { userId: 'u1', role: 'ADMIN', email: 'admin@example.com' };
+      next();
+    });
 
   const fakeRequireRole = () => (_req, _res, next) => next();
 
@@ -69,4 +71,15 @@ test('me route enforces auth middleware chain', async () => {
 
   assert.equal(response.status, 200);
   assert.equal(response.body.route, 'me');
+});
+
+test('me route rejects unauthenticated requests', async () => {
+  const app = createAppWithRouter({
+    requireAuthMiddleware: () => (_req, _res, next) =>
+      next({ statusCode: 401, code: 'AUTH_REQUIRED', message: 'Authentication is required.' }),
+  });
+  const response = await request(app).get('/auth/me');
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.code, 'AUTH_REQUIRED');
 });

@@ -15,14 +15,16 @@ function createStubController() {
   };
 }
 
-function buildApp() {
+function buildApp({ requireAuthMiddleware } = {}) {
   const app = express();
   app.use(express.json());
 
-  const fakeRequireAuth = () => (req, _res, next) => {
-    req.auth = { userId: 'user-1', role: 'USER', email: 'user@example.com' };
-    next();
-  };
+  const fakeRequireAuth =
+    requireAuthMiddleware ||
+    (() => (req, _res, next) => {
+      req.auth = { userId: 'user-1', role: 'USER', email: 'user@example.com' };
+      next();
+    });
 
   app.use('/library', createLibraryRouter({ requireAuth: fakeRequireAuth, controller: createStubController() }));
 
@@ -39,6 +41,17 @@ test('GET /library/songs validates list query', async () => {
 
   assert.equal(response.status, 400);
   assert.equal(response.body.code, 'VALIDATION_ERROR');
+});
+
+test('GET /library/songs rejects unauthenticated request', async () => {
+  const app = buildApp({
+    requireAuthMiddleware: () => (_req, _res, next) =>
+      next({ statusCode: 401, code: 'AUTH_REQUIRED', message: 'Authentication is required.' }),
+  });
+  const response = await request(app).get('/library/songs?page=1&pageSize=10');
+
+  assert.equal(response.status, 401);
+  assert.equal(response.body.code, 'AUTH_REQUIRED');
 });
 
 test('GET /library/songs accepts valid query', async () => {

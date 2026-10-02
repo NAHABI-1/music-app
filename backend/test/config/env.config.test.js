@@ -18,7 +18,7 @@ function buildBaseEnv(overrides = {}) {
     REFRESH_TOKEN_SECRET: 'refresh-secret-value-12345',
     REFRESH_TOKEN_EXPIRES_IN: '30d',
 
-    DATABASE_URL: 'postgres://cloudtune:cloudtune@localhost:5432/cloudtune',
+    DATABASE_URL: 'postgresql://localhost:5432/cloudtune?schema=public',
     DB_POOL_MIN: '1',
     DB_POOL_MAX: '10',
     DB_STATEMENT_TIMEOUT_MS: '12000',
